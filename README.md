@@ -12,13 +12,13 @@ $ conda init --all
 
 
 ```sh
-$ conda create --name sns python=3.12.4 -y
-$ conda activate sns
-$ pip install fastapi torch transformers uvicorn pydantic
+$ conda create --name qwn python=3.12.4 -y
+$ conda activate qwn
+$ pip install torch fastapi transformers uvicorn
 $ python server.py
 ```
 
 
 ```sh
-
+$ docker build -t qwen . && docker run -p 8080:8080 qwen
 ```
