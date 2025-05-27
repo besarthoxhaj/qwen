@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chat Interface</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: Arial, sans-serif;
+      height: 100vh;
+      display: flex;
+      background-color: #f5f5f5;
+    }
+
+    .sidebar {
+      width: 250px;
+      background-color: #2c3e50;
+      color: white;
+      padding: 20px;
+      overflow-y: auto;
+    }
+
+    .sidebar h3 {
+      margin-bottom: 20px;
+      font-size: 18px;
+    }
+
+    .chat-list {
+      list-style: none;
+    }
+
+    .chat-item {
+      padding: 10px;
+      margin-bottom: 5px;
+      background-color: #34495e;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+
+    .chat-item:hover {
+      background-color: #3498db;
+    }
+
+    .chat-item.active {
+      background-color: #3498db;
+    }
+
+    .main-chat {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      background-color: white;
+    }
+
+    .chat-messages {
+      flex: 1;
+      padding: 20px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column-reverse;
+    }
+
+    .message {
+      margin-bottom: 15px;
+      padding: 10px;
+      border-radius: 8px;
+      max-width: 70%;
+    }
+
+    .message.user {
+      background-color: #3498db;
+      color: white;
+      align-self: flex-end;
+    }
+
+    .message.assistant {
+      background-color: #ecf0f1;
+      color: #2c3e50;
+      align-self: flex-start;
+    }
+
+    .chat-input {
+      padding: 20px;
+      border-top: 1px solid #ddd;
+      display: flex;
+      gap: 10px;
+    }
+
+    .chat-input textarea {
+      flex: 1;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+      resize: none;
+      font-family: inherit;
+      font-size: 14px;
+    }
+
+    .chat-input button {
+      padding: 10px 20px;
+      background-color: #3498db;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+
+    .chat-input button:hover {
+      background-color: #2980b9;
+    }
+
+    .upload-button {
+      background-color: #95a5a6;
+    }
+
+    .upload-button:hover {
+      background-color: #7f8c8d;
+    }
+
+    .file-display {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      padding: 5px 10px;
+      background-color: #ecf0f1;
+      border-radius: 5px;
+      font-size: 12px;
+      color: #2c3e50;
+    }
+
+    .file-remove {
+      background: #e74c3c;
+      color: white;
+      border: none;
+      border-radius: 50%;
+      width: 16px;
+      height: 16px;
+      cursor: pointer;
+      font-size: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .file-remove:hover {
+      background: #c0392b;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="sidebar">
+    <h3>Previous Chats</h3>
+    <button onclick="onNewChat()"
+      style="width: 100%; padding: 10px; margin-bottom: 15px; background-color: #3498db; color: white; border: none; border-radius: 5px; cursor: pointer;">New Chat</button>
+    <ul class="chat-list" id="chatList">
+      <li class="chat-item active" data-chat="1">Chat 1</li>
+    </ul>
+  </div>
+
+  <div class="main-chat">
+    <div class="chat-messages" id="chatMessages">
+      <div class="message assistant">Hello! How can I help you today?</div>
+    </div>
+
+    <div class="chat-input">
+      <div id="fileDisplay" class="file-display" style="display: none;">
+        <span id="fileName"></span>
+        <button class="file-remove" onclick="removeFile()">×</button>
+      </div>
+      <textarea id="messageInput" placeholder="Type your message..." rows="1"></textarea>
+      <input type="file" id="fileInput" accept=".txt" style="display: none;" onchange="onFile()">
+      <button class="upload-button" onclick="document.getElementById('fileInput').click()">Upload</button>
+      <button onclick="onMessage()">Send</button>
+    </div>
+  </div>
+
+  <script>
+    /**
+     *
+     *
+     *
+     */
+    let currentChat = 1;
+    let chatCounter = 1;
+    let currFile = null;
+
+    /**
+     *
+     *
+     *
+     */
+    let store = {
+      1: { file: null, msgs: [] }
+    };
+
+    /**
+     *
+     *
+     *
+     */
+    async function onMessage() {
+
+      const input = document.getElementById('messageInput');
+      const message = input.value.trim();
+      if (!message) return;
+
+      displayMessage('user', message);
+      input.value = '';
+      removeFile();
+
+      store[currentChat].msgs.push({ role: 'user', content: message });
+
+      const response = await fetch('/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ history: store[currentChat] })
+      });
+
+      const reader = response.body.getReader();
+      let accumulator = '';
+      let messageDiv = null;
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        const chunk = new TextDecoder().decode(value);
+        accumulator += chunk;
+        if (!messageDiv) { messageDiv = createBotMsg(); }
+        messageDiv.textContent = accumulator;
+      }
+
+      store[currentChat].msgs.push({ role: 'assistant', content: accumulator });
+    }
+
+    /**
+     *
+     *
+     *
+     */
+    function createBotMsg() {
+      const messagesDiv = document.getElementById('chatMessages');
+      const messageDiv = document.createElement('div');
+      messageDiv.className = 'message assistant';
+      messagesDiv.insertBefore(messageDiv, messagesDiv.firstChild);
+      return messageDiv;
+    }
+
+    /**
+     *
+     *
+     *
+     */
+    async function onFile() {
+      const fileInput = document.getElementById('fileInput');
+      const file = fileInput.files[0];
+      if (!file) return;
+      const text = await file.text();
+      store[currentChat].file = text;
+      document.getElementById('fileName').textContent = file.name;
+      document.getElementById('fileDisplay').style.display = 'flex';
+    }
+
+    /**
+     *
+     *
+     *
+     */
+    function removeFile() {
+      currFile = null;
+      document.getElementById('fileInput').value = '';
+      document.getElementById('fileDisplay').style.display = 'none';
+    }
+
+    /**
+     *
+     *
+     *
+     */
+    function onNewChat() {
+      chatCounter++;
+      const newChatId = chatCounter;
+      const chatList = document.getElementById('chatList');
+      const newChatItem = document.createElement('li');
+      newChatItem.className = 'chat-item';
+      newChatItem.dataset.chat = newChatId;
+      newChatItem.textContent = `Chat ${newChatId}`;
+      chatList.insertBefore(newChatItem, chatList.firstChild);
+      store[newChatId] = { file: null, msgs: [] };
+      switchChat(newChatId);
+    }
+
+    /**
+     *
+     *
+     *
+     */
+    function displayMessage(role, content) {
+      const messagesDiv = document.getElementById('chatMessages');
+      const messageDiv = document.createElement('div');
+      messageDiv.className = `message ${role}`;
+      messageDiv.textContent = content;
+      messagesDiv.insertBefore(messageDiv, messagesDiv.firstChild);
+    }
+
+    /**
+     *
+     *
+     *
+     */
+    function switchChat(chatId) {
+      currentChat = chatId;
+      document.querySelectorAll('.chat-item').forEach(item => { item.classList.remove('active'); });
+      document.querySelector(`[data-chat="${chatId}"]`).classList.add('active');
+      const messagesDiv = document.getElementById('chatMessages');
+      messagesDiv.innerHTML = '';
+      if (!store[chatId]) return;
+      store[chatId].msgs.forEach(msg => {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `message ${msg.role}`;
+        messageDiv.textContent = msg.content;
+        messagesDiv.insertBefore(messageDiv, messagesDiv.firstChild);
+      });
+    }
+
+    /**
+     *
+     *
+     *
+     */
+    document.getElementById('messageInput').addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        onMessage();
+      }
+    });
+
+    /**
+     *
+     *
+     *
+     */
+    document.getElementById('chatList').addEventListener('click', function (e) {
+      if (e.target.classList.contains('chat-item')) {
+        const chatId = parseInt(e.target.dataset.chat);
+        switchChat(chatId);
+      }
+    });
+
+    /**
+     *
+     *
+     *
+     */
+    switchChat(currentChat);
+  </script>
+</body>
+
+</html>
