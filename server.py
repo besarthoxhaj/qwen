@@ -14,10 +14,10 @@ import uvicorn
 #
 #
 #
-tkzr = transformers.AutoTokenizer.from_pretrained('Qwen/Qwen2-0.5B-Instruct')
-qwen = transformers.AutoModelForCausalLM.from_pretrained('Qwen/Qwen2-0.5B-Instruct')
+tkzr = transformers.AutoTokenizer.from_pretrained('Qwen/Qwen3-0.6B')
+qwen = transformers.AutoModelForCausalLM.from_pretrained('Qwen/Qwen3-0.6B')
 trms = {tkzr.eos_token_id, tkzr.convert_tokens_to_ids('<|endoftext|>')}
-temp = 0.7
+temp = 0.6
 
 
 #
@@ -38,8 +38,8 @@ app = fastapi.FastAPI()
 #
 @app.get('/')
 def read_root():
-  html_content = pathlib.Path('./app.html').read_text()
-  return HTMLResponse(content=html_content)
+  html = pathlib.Path('./app.html').read_text()
+  return HTMLResponse(content=html)
 
 
 #
@@ -57,7 +57,7 @@ def generate_stream(history):
   kvc = out.past_key_values
   lgt = out.logits[:, -1, :] / temp
 
-  for _ in range(256):
+  for _ in range(2048):
     prb = torch.softmax(lgt, dim=-1)
     nex = torch.multinomial(prb, 1)
     tok = nex.item()

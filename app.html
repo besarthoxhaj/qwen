@@ -72,7 +72,7 @@
       margin-bottom: 15px;
       padding: 10px;
       border-radius: 8px;
-      max-width: 70%;
+      max-width: 75%;
     }
 
     .message.user {
@@ -154,6 +154,13 @@
     .file-remove:hover {
       background: #c0392b;
     }
+
+    .message.assistant .think {
+      font-size: 14px;
+      color: rgb(166, 166, 166);
+      display: block;
+      margin-bottom: 16px;
+    }
   </style>
 </head>
 
@@ -184,7 +191,16 @@
     </div>
   </div>
 
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <script>
+
+    /**
+     *
+     *
+     *
+     */
+    marked.setOptions({ gfm: true, breaks: true });
+
     /**
      *
      *
@@ -236,7 +252,8 @@
         const chunk = new TextDecoder().decode(value);
         accumulator += chunk;
         if (!messageDiv) { messageDiv = createBotMsg(); }
-        messageDiv.textContent = accumulator;
+        const nex = accumulator.replace(/<think>/g, '<span class="think">').replace(/<\/think>/g, '</span>');
+        messageDiv.innerHTML = marked.parse(nex);
       }
 
       store[currentChat].msgs.push({ role: 'assistant', content: accumulator });
@@ -327,7 +344,8 @@
       store[chatId].msgs.forEach(msg => {
         const messageDiv = document.createElement('div');
         messageDiv.className = `message ${msg.role}`;
-        messageDiv.textContent = msg.content;
+        const nex = msg.content.replace(/<think>/g, '<span class="think">').replace(/<\/think>/g, '</span>');
+        messageDiv.innerHTML = marked.parse(nex);
         messagesDiv.insertBefore(messageDiv, messagesDiv.firstChild);
       });
     }
