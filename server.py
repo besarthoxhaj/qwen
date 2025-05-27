@@ -47,22 +47,25 @@ def read_root():
 #
 def generate_stream(history):
 
-  conversation = [{ 'role': 'system', 'content': 'You are a helpful assistant.' }]
-  if history['file'] is not None: conversation.append({ 'role': 'user', 'content': f'File: {history["file"]}' })
-  conversation.extend(history['msgs'])
+  conv = [{ 'role': 'system', 'content': 'You are a helpful assistant.' }]
+  if history['file'] is not None: conv.append({ 'role': 'user', 'content': f'File: {history["file"]}' })
+  conv.extend(history['msgs'])
 
-  txt = tkzr.apply_chat_template(conversation, tokenize=False, add_generation_prompt=True)
+  txt = tkzr.apply_chat_template(conv, tokenize=False, add_generation_prompt=True)
   acc = tkzr(txt, return_tensors='pt').input_ids.to(qwen.device)
+  with torch.no_grad(): out = qwen(acc, use_cache=True)
+  kvc = out.past_key_values
+  lgt = out.logits[:, -1, :] / temp
 
   for _ in range(256):
-    with torch.no_grad():
-      lgt = qwen(acc).logits[:, -1, :] / temp
-      prb = torch.softmax(lgt, dim=-1)
-      nex = torch.multinomial(prb, 1)
-    acc = torch.cat([acc, nex], dim=-1)
-    tok_id = nex.item()
-    if tok_id in trms: break
-    yield tkzr.decode(tok_id, skip_special_tokens=True)
+    prb = torch.softmax(lgt, dim=-1)
+    nex = torch.multinomial(prb, 1)
+    tok = nex.item()
+    if tok in trms: break
+    yield tkzr.decode(tok, skip_special_tokens=True)
+    with torch.no_grad(): out = qwen(nex, past_key_values=kvc, use_cache=True)
+    kvc = out.past_key_values
+    lgt = out.logits[:, -1, :] / temp
 
 
 #
